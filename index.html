@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Rust Wasm File Compressor</title>
+    <style>
+        body { font-family: sans-serif; }
+        #downloadLink { display: none; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h1>Rust Wasm File Compressor</h1>
+
+    <p>Select files to compress into a ZIP archive:</p>
+    <input type="file" id="fileInput" multiple>
+
+    <a id="downloadLink" href="#" download="compressed_files.zip">Download ZIP File</a>
+
+    <script type="module">
+        // Import the generated wasm-bindgen module.
+        // **IMPORTANT:** Adjust the path below to the correct location of your
+        // `your_zip_lib.js` file after running `wasm-pack build`.
+        import init, { compress_files_to_zip } from './pkg/zip_wasm.js';
+
+        async function main() {
+            await init(); // Initialize the WASM module
+
+            const fileInput = document.getElementById('fileInput');
+            const downloadLink = document.getElementById('downloadLink');
+
+            fileInput.addEventListener('change', async (event) => {
+                const files = Array.from(fileInput.files);
+                if (!files.length) return;
+
+                const fileDataArray = [];
+                for (const file of files) {
+                    try {
+                        const contentBuffer = await file.arrayBuffer(); // Read as ArrayBuffer
+                        const contentUint8Array = new Uint8Array(contentBuffer); // Convert to Uint8Array
+                        fileDataArray.push({ name: file.name, content: contentUint8Array });
+                    } catch (readError) {
+                        console.error("Error reading file:", file.name, readError);
+                        alert(`Error reading file: ${file.name}. See console for details.`);
+                        return; // Stop processing if a file read fails
+                    }
+                }
+
+                if (fileDataArray.length === 0) return; // No valid file data
+
+                try {
+                    console.log("Starting ZIP compression...");
+                    const zipUint8Array = await compress_files_to_zip(fileDataArray);
+                    console.log("ZIP compression complete.");
+
+                    const zipBlob = new Blob([zipUint8Array], { type: 'application/zip' });
+                    const zipUrl = URL.createObjectURL(zipBlob);
+
+                    downloadLink.href = zipUrl;
+                    downloadLink.download = 'compressed_files.zip';
+                    downloadLink.style.display = 'block'; // Show download link
+                    console.log("Download link created.");
+
+                } catch (error) {
+                    console.error("Error compressing files:", error);
+                    alert("Error compressing files. See console for details.");
+                }
+            });
+        }
+
+        main();
+    </script>
+</body>
+</html>
